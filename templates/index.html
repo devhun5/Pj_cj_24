@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">나만의 카페 다이어리</h1>
+            <p class="lead">당신만의 특별한 카페 경험을 기록하고 공유하세요</p>
+            
+            {% if current_user.is_authenticated %}
+                <div class="mt-4">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">내 다이어리 보기</a>
+                </div>
+            {% else %}
+                <div class="mt-4">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg me-2">로그인</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">회원가입</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

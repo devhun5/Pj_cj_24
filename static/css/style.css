@@ -1,0 +1,82 @@
+/* 전체 스타일 */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* 네비게이션 바 */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: #3d5afe !important;
+}
+
+/* 카드 스타일 */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* 버튼 스타일 */
+.btn-primary {
+    background-color: #3d5afe;
+    border-color: #3d5afe;
+}
+
+.btn-primary:hover {
+    background-color: #536dfe;
+    border-color: #536dfe;
+}
+
+/* 방문 기록 카드 */
+.visit-card {
+    margin-bottom: 20px;
+}
+
+.visit-card .card-title {
+    color: #3d5afe;
+    font-weight: bold;
+}
+
+/* 지도 컨테이너 */
+#map {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+/* 영수증 업로드 폼 */
+.upload-section {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+/* 평점 스타일 */
+.rating {
+    color: #ffd700;
+}
+
+/* 로딩 스피너 */
+.spinner-border {
+    color: #3d5afe;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    #map {
+        height: 300px;
+    }
+}

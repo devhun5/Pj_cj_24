@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block head %}
+    {{ super() }}
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .place-search {
+            margin-bottom: 20px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">내 카페 다이어리</h2>
+    
+    <!-- 장소 검색 -->
+    <div class="place-search">
+        <input type="text" id="place-search" class="form-control" placeholder="카페 검색...">
+    </div>
+
+    <!-- 지도 표시 -->
+    <div id="map"></div>
+
+    <!-- 영수증 업로드 섹션 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">새로운 카페 방문 기록하기</h5>
+            <form id="receiptUploadForm" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="receipt" class="form-label">영수증 사진 업로드</label>
+                    <input type="file" class="form-control" id="receipt" name="receipt" accept="image/*">
+                </div>
+                <div class="mb-3">
+                    <img id="preview-image" style="max-width: 300px; display: none;" class="img-fluid">
+                </div>
+                <div id="uploadStatus" class="alert" style="display: none;"></div>
+                <div id="ocr-result" style="display: none;">
+                    <h6 class="mt-4">OCR 분석 결과</h6>
+                    <div class="mb-3">
+                        <label class="form-label">카페 이름</label>
+                        <input type="text" class="form-control" id="store-name" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">방문 날짜</label>
+                        <input type="text" class="form-control" id="visit-date" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">메뉴</label>
+                        <textarea class="form-control" id="menu-items" rows="3" readonly></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">총액</label>
+                        <input type="text" class="form-control" id="total-price" readonly>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="uploadReceipt()">분석하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 지도 섹션 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">내 카페 지도</h5>
+            <div id="kakao-map" style="width: 100%; height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- 방문 기록 목록 -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">방문 기록</h5>
+            <div class="row">
+                {% for visit in visits %}
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ visit.cafe_name }}</h5>
+                            <p class="card-text">
+                                <small class="text-muted">{{ visit.visit_date.strftime('%Y-%m-%d %H:%M') }}</small><br>
+                                메뉴: {{ visit.menu_items }}<br>
+                                가격: {{ visit.total_price }}원
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 지도 초기화
+    function initMap() {
+        const map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
+            zoom: 13
+        });
+
+        // 장소 검색 자동완성
+        const searchInput = document.getElementById('place-search');
+        const autocomplete = new google.maps.places.Autocomplete(searchInput);
+        
+        autocomplete.addListener('place_changed', function() {
+            const place = autocomplete.getPlace();
+            if (!place.geometry) return;
+
+            // 지도 중심 이동
+            map.setCenter(place.geometry.location);
+            
+            // 마커 추가
+            new google.maps.Marker({
+                map: map,
+                position: place.geometry.location,
+                title: place.name
+            });
+
+            // 장소 상세 정보 가져오기
+            fetch(`/get_place_details/${place.place_id}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Place details:', data);
+                });
+        });
+    }
+
+    // 지도 로드
+    window.onload = initMap;
+
+    // 카카오맵 초기화
+    var container = document.getElementById('kakao-map');
+    var options = {
+        center: new kakao.maps.LatLng(37.566826, 126.978656),
+        level: 3
+    };
+    var kakaoMap = new kakao.maps.Map(container, options);
+
+    // 방문 기록 마커 표시
+    {% for visit in visits %}
+        var marker = new kakao.maps.Marker({
+            position: new kakao.maps.LatLng({{ visit.latitude }}, {{ visit.longitude }}),
+            map: kakaoMap
+        });
+    {% endfor %}
+
+    // 파일 입력 처리
+    const fileInput = document.getElementById('receipt');
+    const previewImage = document.getElementById('preview-image');
+
+    // 이미지 미리보기
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function uploadReceipt() {
+        const form = document.getElementById('receiptUploadForm');
+        const formData = new FormData(form);
+        const statusDiv = document.getElementById('uploadStatus');
+        const submitButton = document.querySelector('#receiptUploadForm button[type="button"]');
+        const ocrResult = document.getElementById('ocr-result');
+        
+        // 상태 표시 초기화
+        statusDiv.className = 'alert';
+        statusDiv.style.display = 'none';
+        statusDiv.textContent = '';
+        
+        // 파일 선택 확인
+        const fileInput = document.getElementById('receipt');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = '파일을 선택해주세요.';
+            return;
+        }
+        
+        // 로딩 표시
+        statusDiv.className = 'alert alert-info';
+        statusDiv.style.display = 'block';
+        statusDiv.textContent = '영수증을 분석하고 있습니다...';
+        submitButton.disabled = true;
+        
+        fetch('/upload_receipt', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            submitButton.disabled = false;
+            if (data.success) {
+                statusDiv.className = 'alert alert-success';
+                statusDiv.textContent = '영수증이 성공적으로 처리되었습니다.';
+                
+                // OCR 결과 표시
+                document.getElementById('store-name').value = data.receipt_info.store_name;
+                document.getElementById('visit-date').value = data.receipt_info.datetime;
+                let menuText = '';
+                data.receipt_info.menu_items.forEach(item => {
+                    menuText += `${item.name}: ${item.price}원\n`;
+                });
+                document.getElementById('menu-items').value = menuText;
+                document.getElementById('total-price').value = data.receipt_info.total_price + '원';
+                ocrResult.style.display = 'block';
+                
+                // 3초 후 페이지 새로고침
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            } else {
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = data.error || '영수증 처리 중 오류가 발생했습니다.';
+            }
+        })
+        .catch(error => {
+            submitButton.disabled = false;
+            console.error('Error:', error);
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.textContent = '서버 오류가 발생했습니다. 다시 시도해주세요.';
+        });
+    }
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 카카오맵 API -->
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_map_api_key }}"></script>
+{% endblock %}
